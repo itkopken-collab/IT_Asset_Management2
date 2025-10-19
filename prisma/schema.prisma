@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      UserRole @default(STORE_USER)
+  storeId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store     Store?   @relation(fields: [storeId], references: [id])
+  transfersFrom AssetTransfer[] @relation("TransferFromUser")
+  transfersTo   AssetTransfer[] @relation("TransferToUser")
+
+  @@map("users")
+}
+
+model Store {
+  id          String @id @default(cuid())
+  storeCode   String @unique
+  storeName   String
+  address     String?
+  phone       String?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users   User[]
+  devices Device[]
+  transfersFrom AssetTransfer[] @relation("TransferFrom")
+  transfersTo   AssetTransfer[] @relation("TransferTo")
+
+  @@map("stores")
+}
+
+model DeviceCategory {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  devices Device[]
+
+  @@map("device_categories")
+}
+
+model Device {
+  id            String      @id @default(cuid())
+  famCode       String      @unique
+  serialNumber  String      @unique
+  deviceName    String
+  model         String?
+  brand         String?
+  categoryId    String
+  storeId       String
+  status        DeviceStatus @default(BAIK)
+  purchaseDate  DateTime?
+  purchasePrice Float?
+  warrantyUntil DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category   DeviceCategory   @relation(fields: [categoryId], references: [id])
+  store      Store            @relation(fields: [storeId], references: [id])
+  transfers  AssetTransfer[]
+
+  @@map("devices")
+}
+
+model AssetTransfer {
+  id          String           @id @default(cuid())
+  deviceId    String
+  fromStoreId String
+  toStoreId   String
+  requestedBy String
+  approvedBy  String?
+  status      TransferStatus   @default(PENDING)
+  requestDate DateTime         @default(now())
+  approveDate DateTime?
+  notes       String?
+
+  device     Device @relation(fields: [deviceId], references: [id])
+  fromStore  Store  @relation("TransferFrom", fields: [fromStoreId], references: [id])
+  toStore    Store  @relation("TransferTo", fields: [toStoreId], references: [id])
+  requestedByUser User @relation("TransferFromUser", fields: [requestedBy], references: [id])
+  approvedByUser  User? @relation("TransferToUser", fields: [approvedBy], references: [id])
+
+  @@map("asset_transfers")
+}
+
+enum UserRole {
+  ADMIN
+  STORE_USER
+}
+
+enum DeviceStatus {
+  BAIK
+  RUSAK
+  DISPOSAL
+  ON_SERVICE
+}
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
